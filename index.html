@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <meta name="author" content="Dave Archer, Thomas DuBuisson" />
+  <title>Crylock:  Minilock in Cryptol</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.0.0/css/reveal.min.css"/>
+    <style type="text/css">code{white-space: pre;}</style>
+    <style type="text/css">
+div.sourceCode { overflow-x: auto; }
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; background-color: #303030; color: #cccccc; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; }
+td.sourceCode { padding-left: 5px; }
+pre, code { color: #cccccc; background-color: #303030; }
+code > span.kw { color: #f0dfaf; }
+code > span.dt { color: #dfdfbf; }
+code > span.dv { color: #dcdccc; }
+code > span.bn { color: #dca3a3; }
+code > span.fl { color: #c0bed1; }
+code > span.ch { color: #dca3a3; }
+code > span.st { color: #cc9393; }
+code > span.co { color: #7f9f7f; }
+code > span.ot { color: #efef8f; }
+code > span.al { color: #ffcfaf; }
+code > span.fu { color: #efef8f; }
+code > span.er { color: #c3bf9f; }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.0.0/css/theme/black.css" id="theme">
+    <!-- If the query includes 'print-pdf', include the PDF print sheet -->
+    <script>
+      if( window.location.search.match( /print-pdf/gi ) ) {
+        var link = document.createElement( 'link' );
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = 'https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.0.0/css/print/pdf.css';
+        document.getElementsByTagName( 'head' )[0].appendChild( link );
+      }
+    </script>
+    <!--[if lt IE 9]>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.0.0/lib/js/html5shiv.js"></script>
+    <![endif]-->
+    <style type="text/css">p{ text-align: left; }</style>
+    <style type="text/css">ul{ display: table; margin-left: 0 ; padding-left: 0 ; list-style: none; }</style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+<section>
+    <h3 class="title">Crylock: <br> Minilock in Cryptol</h1>
+    <h2 class="author">Dave Archer, Thomas DuBuisson</h2>
+    <h3 class="date">May, 2015</h3>
+</section>
+
+<section><section id="what-is-cryptol" class="titleslide slide level1"><h3>What is Cryptol?</h1></section><section id="cryptol" class="slide level2">
+<h3>Cryptol</h1>
+<ul>
+<li>A DSL for algorithms over generic bitstreams</li>
+<li>A tool for
+<ul>
+<li>Executing the specified algorithms</li>
+<li>Stating, verifying, and proving algorithm properties</li>
+<li>Verifying equivalence of implementations (C, Java, MATLAB...)</li>
+<li>Generating implementations (LLVM bytecode, VHDL)</li>
+</ul></li>
+<li>Goal: Cryptol specification is verifiable by inspection against a mathematical definition</li>
+</ul>
+</section><section id="in-the-wild" class="slide level2">
+<h3>In the Wild</h1>
+<ul>
+<li>Intelligence communities</li>
+<li>Corporate crypto experts</li>
+<li>Crypto research and education community</li>
+<li>Over 10 years of active use</li>
+</ul>
+</section><section id="everything-is-bits" class="slide level2">
+<h3>Everything Is Bits</h1>
+<pre class="cryptol"><code>Cryptol&gt; :type 0x1234
+0x1234 : [16]
+Cryptol&gt; :type [1,2,3,4,5]
+[1, 2, 3, 4, 5] : {a} (fin a, a &gt;= 3) =&gt; [5][a]</code></pre>
+</section><section id="functional-strongly-typed" class="slide level2">
+<h3>Functional, Strongly Typed</h1>
+<pre class="cryptol"><code>Cryptol&gt; :t split
+split : {parts, each, a} (fin each)
+     =&gt; [parts * each]a -&gt; [parts][each]a
+</code></pre>
+<pre class="cryptol"><code>littleEndian word = reverse (split `{each=8} word)</code></pre>
+<div class="fragment">
+<pre class="cryptol"><code>littleEndian word = reverse (split `{parts=4} word)</code></pre>
+</div>
+<div class="fragment">
+<pre class="cryptol"><code>littleEndian : [32] -&gt; [4][8]
+littleEndian word = reverse (split word)</code></pre>
+</div>
+</section><section id="cryptol-spec" class="slide level2">
+<h3>Cryptol &lt;&gt; Spec</h1>
+<figure>
+<img src="Salsa20-Spec.png" />
+</figure>
+<pre class="cryptol"><code>quarterround : [4][32] -&gt; [4][32]
+quarterround [y0, y1, y2, y3] = [z0, z1, z2, z3]
+  where
+    z1 = y1 ^ ((y0 + y3) &lt;&lt;&lt; 0x7)
+    z2 = y2 ^ ((z1 + y0) &lt;&lt;&lt; 0x9)
+    z3 = y3 ^ ((z2 + z1) &lt;&lt;&lt; 0xd)
+    z0 = y0 ^ ((z3 + z2) &lt;&lt;&lt; 0x12)</code></pre>
+</section><section id="cryptol-spec-1" class="slide level2">
+<h3>Cryptol &lt;&gt; Spec</h1>
+<pre class="cryptol"><code>SHA256MessageSchedule : [16][32] -&gt; [64][32]
+SHA256MessageSchedule M = W where
+    W = M #
+        [ s1 (W@(t-2)) + W@(t-7) + s0 (W@(t-15)) + W@(t-16)
+              | t &lt;- [16 .. 63]  ]</code></pre>
+<figure>
+<img src="SHA256-Spec.png" alt="SHA256" /><figcaption>SHA256</figcaption>
+</figure>
+</section><section id="expressive-specialized" class="slide level2">
+<h3>Expressive, specialized</h1>
+<div class="sourceCode"><pre class="sourceCode javascript"><code class="sourceCode javascript"> <span class="kw">while</span> (b &gt;= <span class="dv">64</span>) {
+   <span class="fu">crypto_core_salsa20</span>(x,z,k,sigma);
+   <span class="kw">for</span> (i = <span class="dv">0</span>; i &lt; <span class="dv">64</span>; i++) c[cpos+i] = m[mpos+i] ^ x[i];
+   u = <span class="dv">1</span>;
+   <span class="kw">for</span> (i = <span class="dv">8</span>; i &lt; <span class="dv">16</span>; i++) {
+     u = u + (z[i] &amp; <span class="bn">0xff</span>) | <span class="dv">0</span>;
+     z[i] = u &amp; <span class="bn">0xff</span>;
+     u &gt;&gt;&gt;= <span class="dv">8</span>;
+   }
+   b -= <span class="dv">64</span>;
+   cpos += <span class="dv">64</span>;
+   mpos += <span class="dv">64</span>;
+ }</code></pre></div>
+<pre><code> salsa = join [ Salsa20(k, v#(split i)) | i &lt;- [0, 1 ...]]
+ c     = m ^ take salsa</code></pre>
+</section><section id="cryptol-is-not..." class="slide level2">
+<h3>Cryptol is not...</h1>
+<ul>
+<li>A protocol description language
+<ul>
+<li>No means of expressing communication between parties</li>
+</ul></li>
+<li>A protocol verification suite
+<ul>
+<li>No reasoning about concurrent actions by multiple parties</li>
+</ul></li>
+<li>A general-purpose programming language
+<ul>
+<li>No data management appropriate for general data processing</li>
+</ul></li>
+</ul>
+</section></section>
+<section><section id="minilock-project" class="titleslide slide level1"><h3>Minilock Project</h1></section><section id="log-in" class="slide level2">
+<h3>Log in</h1>
+<figure>
+<img src="Minilock-Login.png" />
+</figure>
+</section><section id="keys" class="slide level2">
+<h3>Keys</h1>
+<p>private key = SCrypt (Blake2s(password))</p>
+<p>public key = Curve25519(private, 9)</p>
+<p>minilock ID = base58(public || blake2s<span class="math"><em></em><sub>1</sub></span>(public))</p>
+</section><section id="ui" class="slide level2">
+<h3>UI</h1>
+<figure>
+<img src="Minilock-LoggedIn.png" />
+</figure>
+</section><section id="encryption" class="slide level2">
+<h3>Encryption</h1>
+<figure>
+<img src="Minilock-Encrypt.png" />
+</figure>
+</section><section id="minilock-operations" class="slide level2">
+<h3>Minilock Operations</h1>
+<p><span class="math"><em>k</em> ← {0, 1}<sup>256</sup></span> ; <span class="math"><em>n</em> ← {0, 1}<sup>192</sup></span></p>
+<p>ciphertext = XSalsa20+Poly1305(k, n, file)</p>
+<div class="fragment">
+<p>For each recipient:</p>
+<ul>
+<li><span class="math"><em>K</em><sub>LT</sub></span> = Curve25519(Sender, Receiver)</li>
+<li>RecipInfo = IDs || <span class="math"><em>E</em><sub><em>K</em><sub>LT</sub></sub></span>(k || n || blake2s(file))</li>
+<li><span class="math"><em>K</em><sub>ST</sub></span> = Curve25519(Ephemeral, Receiver)</li>
+<li>RI = <span class="math"><em>E</em><sub><em>K</em><sub>st</sub>, nonce</sub></span>(RecipInfo)</li>
+</ul>
+</div>
+<div class="fragment">
+<p>Header = Ephemeral Public Key || Nonce<span class="math"><em></em><sub>1⋯<em>N</em></sub></span> || <span class="math"><em>R</em><em>I</em><sub>1⋯<em>N</em></sub></span></p>
+</div>
+</section><section id="minilock-format" class="slide level2">
+<h3>Minilock Format</h1>
+<figure>
+<img src="MinilockFormat.png" />
+</figure>
+</section><section id="cryptol-spec-2" class="slide level2">
+<h3>Cryptol Spec</h1>
+<ul>
+<li>About two weeks, including time spent with tooling</li>
+<li>~1500 lines of primitives</li>
+<li>~200 lines of minilock-specific glue code</li>
+<li>Interoperable
+<ul>
+<li>File constructed with crylock can be opened by Minilock</li>
+</ul></li>
+</ul>
+<p><em>grain of salt</em></p>
+<p>Original (javascript) ~4000 lines and 700 lines respectively.</p>
+</section><section id="primitives-used" class="slide level2">
+<h3>Primitives Used</h1>
+<ul>
+<li>Key derivation
+<ul>
+<li>SHA256</li>
+<li>HMAC</li>
+<li>PBKDF2</li>
+<li>SCrypt</li>
+</ul></li>
+<li>Encapsulation
+<ul>
+<li>NaCl's crypto_box
+<ul>
+<li>XSalsa</li>
+<li>Poly1305</li>
+<li>Curve25519</li>
+</ul></li>
+<li>Blake2s</li>
+</ul></li>
+<li>Formatting
+<ul>
+<li>Base64, Base58</li>
+</ul></li>
+</ul>
+</section><section id="demonstration" class="slide level2">
+<h3>Demonstration</h1>
+</section></section>
+<section><section id="brass-tacks" class="titleslide slide level1"><h3>Brass Tacks</h1></section><section id="properties" class="slide level2">
+<h3>Properties</h1>
+<pre class="cryptol"><code>property Salsa20_doubleround_has_no_collisions x1 x2 =
+  x1 == x2 || doubleround x1 != doubleround x2</code></pre>
+<div class="fragment">
+<pre><code>Salsa20&gt; :check Salsa20_doubleround_has_no_collisions
+Using random testing.
+passed 100 tests.
+Coverage: 0.00% (100 of ...)</code></pre>
+</div>
+<div class="fragment">
+<pre><code>Salsa20&gt; :exhaust Salsa20_doubleround_has_no_collisions
+Using exhaustive testing.
+  0%Ctrl-C</code></pre>
+</div>
+<div class="fragment">
+<pre class="cryptol"><code>Salsa20&gt; :set prover=z3
+Salsa20&gt; :prove Salsa20_doubleround_has_no_collisions
+Q.E.D.</code></pre>
+</div>
+</section><section id="brass-tacks-properties" class="slide level2">
+<h3>Brass Tacks: Properties</h1>
+<p><img src="Salsa20-Theorem1-60.png" alt="Theorem 1" /> <img src="Salsa20-Theorem2-60.png" alt="Theorem 2" /> <img src="Salsa20-Theorem3-60.png" alt="Theorem 3" /> <img src="Salsa20-Theorem4-60.png" alt="Theorem 4" /></p>
+</section><section id="brass-tacks-properties-1" class="slide level2">
+<h3>Brass Tacks: Properties</h1>
+<pre><code>property theorem1 a = quarterround [a, -a, a, -a] == [a,-a,a,-a]</code></pre>
+<pre><code>property theorem2 a b c d = rowround val == val
+    where val    = [a,-a,a,-a
+                   ,b,-b,b,-b
+                   ,c,-c,c,-c
+                   ,d,-d,d,-d]</code></pre>
+<pre><code>property theorem3 a b c d = columnround val == val
+    where val    = [a,-b,c,-d
+                   ,-a,b,-c,d
+                   ,a,-b,c,-d
+                   ,-a,b,-c,d]</code></pre>
+<pre><code>property theorem4 a = doubleround val == val
+    where val    = [a,-a,a,-a
+                   ,-a,a,-a,a
+                   ,a,-a,a,-a
+                   ,-a,a,-a,a]</code></pre>
+</section><section id="brass-tacks-properties-2" class="slide level2">
+<h3>Brass Tacks: Properties</h1>
+<pre><code>Salsa20&gt; :set prover=any
+Salsa20&gt; :prove theorem1
+Q.E.D.
+Salsa20&gt; :prove theorem2
+Q.E.D.
+Salsa20&gt; :prove theorem3
+Q.E.D.
+Salsa20&gt; :prove theorem4
+Q.E.D.</code></pre>
+</section><section id="brass-tacks-no-results" class="slide level2">
+<h3>Brass Tacks: No Results</h1>
+<figure>
+<img src="Salsa20-Theorem7.png" />
+</figure>
+<pre><code>property theorem7 a b =
+    a ^ b != diff || Salsa20Words a == Salsa20Words b
+ where
+  diff = [ 0x80000000 | _ &lt;- [0..15]]</code></pre>
+<div class="fragment">
+<p>Last minute result: Boolector did terminate after an unimpressive week+ of computation.</p>
+</div>
+</section><section id="brass-tacks-positive-results" class="slide level2">
+<h3>Brass Tacks: Positive Results</h1>
+<pre><code>property speckKeyExpansionInjective x y =
+   x == y || speckKeyExpansion x != speckKeyExpansion y</code></pre>
+<pre><code>SimonAndSpeck&gt; :set prover=boolector
+SimonAndSpeck&gt; :prove speckKeyExpansionInjective
+Q.E.D.</code></pre>
+<div class="fragment">
+<pre><code>property simon_ident_128_128 k p =
+    simonD_128_128 k (simonE_128_128 k p) == p</code></pre>
+<pre><code>SimonAndSpeck&gt; :set prover=any
+SimonAndSpeck&gt; :prove simon_ident_128_128
+Q.E.D.</code></pre>
+</div>
+</section><section id="brass-tacks-negitive-results" class="slide level2">
+<h3>Brass Tacks: Negitive Results</h1>
+<pre><code>property ZUC_isResistantToCollisionAttack k iv1 iv2 =
+    iv1 == iv2 ||
+    InitializeZUC (k, iv1) @ 1 != InitializeZUC (k, iv2) @ 1</code></pre>
+<pre><code>Main&gt; :prove ZUC_isResistantToCollisionAttack 
+ZUC_isResistantToCollisionAttack 0x12000000070000000000c0000085006b
+                                 0x0e008f00ff0000000000ff0000ed0040
+                                 0x96008f00ff0000000000ff0000ed0040
+    = False</code></pre>
+</section></section>
+<section><section id="beyond-cryptol" class="titleslide slide level1"><h3>Beyond Cryptol</h1></section><section id="software-analysis-workbench" class="slide level2">
+<h3>Software Analysis Workbench</h1>
+<p><font size="6"></p>
+<ul>
+<li>SAWScript: a special-purpose scripting language
+<ul>
+<li>Construct, manipulate, and query mathematical models of software semantics</li>
+<li>Supports LLVM, JVM, Cryptol</li>
+<li>Proofs of properties using automated provers</li>
+<li>Compositional proof techniques</li>
+</ul></li>
+<li>Represents 'Term's in a dependently typed lambda calculus</li>
+<li>Interface via an interactive REPL or batch scripts</li>
+</ul>
+<p></font></p>
+</section><section id="saw-triple-des-example" class="slide level2">
+<h3>SAW: Triple DES Example</h1>
+<pre class="saw"><code>m       &lt;- cryptol_load &quot;DES.cry&quot;;
+enc     &lt;- define &quot;enc&quot; {{ m::DES.encrypt }};
+dec     &lt;- define &quot;dec&quot; {{ m::DES.decrypt }};
+dec_enc &lt;- time (prove abc {{ \k m -&gt; dec k (enc k m) == m }});
+enc_dec &lt;- time (prove abc {{ \k m -&gt; enc k (dec k m) == m }});
+letss = simpset [dec_enc, enc_dec];
+let{{
+  enc3 k1 k2 k3 msg = enc k3 (dec k2 (enc k1 msg))
+  dec3 k1 k2 k3 msg = dec k1 (enc k2 (dec k3 msg))
+  dec3_enc3 k1 k2 k3 msg = dec3 k1 k2 k3 (enc3 k1 k2 k3 msg) == msg
+}};
+time (prove do {simplify ss; abc; } {{ dec3_enc3 }});</code></pre>
+<pre><code>Valid
+Time: 4.694s
+Valid
+Time: 4.718s
+Valid
+Time: 0.003s</code></pre>
+</section><section id="software-analysis-workbench-compositional-proofs" class="slide level2">
+<h3>Software Analysis Workbench: Compositional Proofs</h1>
+<pre><code>property theorem7 a b =
+    a ^ b != diff || Salsa20Words a == Salsa20Words b
+ where
+  diff = [ 0x80000000 | _ &lt;- [0..15]]</code></pre>
+<div class="fragment">
+<pre><code>t1_po &lt;- prove_print abc {{ theorem1 }};
+...
+t5_po &lt;- prove_print abc {{ theorem5 }};
+
+let ss = simpset [ t1_po, t2_po, t3_po, t4_po, t5_po ];
+prove_print do { simplify ss; abc ; }
+  {{ \a -&gt; ( (Salsa20Words a == Salsa20Words (a ^ diff))
+                    where diff = [ 0x80000000 | _ &lt;- [0..15] )
+  }};</code></pre>
+</div>
+<div class="fragment">
+<pre><code>Valid
+Valid
+Valid
+Valid
+Valid
+Proving Theorem 7
+Valid</code></pre>
+</div>
+</section><section id="equivalence-checking" class="slide level2">
+<h3>Equivalence Checking</h1>
+<pre><code>void core(u8 *out,const u8 *in,const u8 *k,const u8 *c) {
+    u32 w[16],x[16],y[16],t[4];
+    int i,j,m;
+
+    FOR(i,4) {
+        x[5*i] = ld32(c+4*i);
+        x[1+i] = ld32(k+4*i);
+        x[6+i] = ld32(in+4*i);
+        x[11+i] = ld32(k+16+4*i);
+    }
+
+    FOR(i,16) y[i] = x[i];
+
+    FOR(i,20) {
+        FOR(j,4) {
+            FOR(m,4) t[m] = x[(5*j+4*m)%16];
+            t[1] ^= L32(t[0]+t[3], 7);
+            t[2] ^= L32(t[1]+t[0], 9);
+            t[3] ^= L32(t[2]+t[1],13);
+            t[0] ^= L32(t[3]+t[2],18);
+            FOR(m,4) w[4*j+(j+m)%4] = t[m];
+        }
+        FOR(m,16) x[m] = w[m];
+    }
+    FOR(i,16) st32(out + 4 * i,x[i] + y[i]);</code></pre>
+</section><section id="equivalence-checking-1" class="slide level2">
+<h3>Equivalence Checking</h1>
+<pre><code>    tnacl        &lt;- llvm_load_module &quot;tweetnacl.bc&quot;;
+    nacl_salsa20 &lt;- llvm_symexec tnacl symb allocs inits results;
+    nacl_as      &lt;- abstract_symbolic nacl_salsa20;
+    testAIG      &lt;- bitblast nacl_as;
+    specAIG      &lt;- bitblast {{ \k n -&gt; Salsa20_expansion (k,n) }};
+    cec testAIG specAIG;</code></pre>
+<pre><code>Proving Salsa20 equivalent between Cryptol spec and tweetnacl.
+        Loading tweetnacl llvm byte code.
+        Extracting the Salsa20 encryption function.
+        Bit blasting the NaCl and Cryptol terms.
+        Using CEC to prove equivalence.
+Valid</code></pre>
+</section></section>
+<section><section id="ending-notes" class="titleslide slide level1"><h3>Ending Notes</h1></section><section id="references" class="slide level2">
+<h3>References</h1>
+<ul>
+<li>Cryptol : http://cryptol.net</li>
+<li>Code : https://github.com/GaloisInc/cryptol</li>
+<li>Slides : https://github.com/TomMD/cryptol-slides</li>
+<li>SAW : Initial non-commercial release Monday</li>
+</ul>
+</section></section>
+    </div>
+  </div>
+
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.0.0/lib/js/head.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.0.0/js/reveal.min.js"></script>
+
+  <script>
+
+      // Full list of configuration options available here:
+      // https://github.com/hakimel/reveal.js#configuration
+      Reveal.initialize({
+        controls: true,
+        progress: true,
+        history: true,
+        center: true,
+        theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+        transition: 'slide', // default/cube/page/concave/zoom/linear/fade/none
+
+        // Optional libraries used to extend on reveal.js
+        dependencies: [
+          { src: 'https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.0.0/lib/js/classList.js', condition: function() { return !document.body.classList; } },
+          { src: 'https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.0.0/plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+          { src: 'https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.0.0/plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } },
+//          { src: 'https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.0.0/plugin/search/search.js', async: true, condition: function() { return !!document.body.classList; }, }
+//          { src: 'https://cdnjs.cloudflare.com/ajax/libs/reveal.js/3.0.0/plugin/remotes/remotes.js', async: true, condition: function() { return !!document.body.classList; } }
+]});
+    </script>
+    </body>
+</html>
