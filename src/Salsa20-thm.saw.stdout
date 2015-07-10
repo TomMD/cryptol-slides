@@ -1,0 +1,24 @@
+Loading module Cryptol
+Loading file "Salsa20-thm.saw"
+Loading module LittleEndian
+Loading module Salsa20
+[warning] at ./Salsa20.cry:1:1--273:118:
+  Defaulting type parameter 'bits'
+             of finite enumeration
+             at ./Salsa20.cry:270:30--270:37
+  to 4
+Proving Salsa20 hash theorems.
+Valid
+Time:     0.089s
+Valid
+Time:     0.160s
+Valid
+Time:     0.122s
+Valid
+Time:     0.218s
+Valid
+Time:     1.201s
+Proving Theorem 7
+Valid
+Time:     0.334s
+Done

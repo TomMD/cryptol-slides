@@ -1,0 +1,35 @@
+import "Salsa20.cry";
+
+let main : TopLevel () = do {
+    print "Proving Salsa20 hash theorems.";
+    let simpset x = addsimps x empty_ss;
+
+    t1_po <- time (prove_print abc {{ \a -> quarterround [a, -a, a, -a] == [a,-a,a,-a] }});
+    t2_po <- time (prove_print abc {{ \a b c d -> (rowround val == val
+                                                    where val    = [a,-a,a,-a
+                                                                   ,b,-b,b,-b
+                                                                   ,c,-c,c,-c
+                                                                   ,d,-d,d,-d])}});
+    t3_po <- time (prove_print abc {{  \a b c d -> (columnround val == val
+                                                    where val    = [a,-b,c,-d
+                                                                   ,-a,b,-c,d
+                                                                   ,a,-b,c,-d
+                                                                   ,-a,b,-c,d]) }});
+    t4_po <- time (prove_print abc {{ \a -> (doubleround val == val
+                                                where val    = [a,-a,a,-a
+                                                               ,-a,a,-a,a
+                                                               ,a,-a,a,-a
+                                                               ,-a,a,-a,a]) }});
+    t5_po <- time (prove_print abc {{ \a -> (Salsa20Words val == [2*v | v <- val]
+                                                where val    = [a,-a,a,-a
+                                                               ,-a,a,-a,a
+                                                               ,a,-a,a,-a
+                                                               ,-a,a,-a,a]) }});
+    let ss = simpset [ t1_po, t2_po, t3_po, t4_po, t5_po ];
+
+    print "Proving Theorem 7";
+    time (prove_print do { simplify ss; abc ; } {{ \a -> ((Salsa20Words a == Salsa20Words (a ^ diff))
+                                                                where
+                                                                 diff = [ 0x80000000 | _ <- [0..15] : [_][4]]) }});
+    print "Done";
+};
